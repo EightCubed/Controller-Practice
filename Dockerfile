@@ -11,7 +11,7 @@ RUN go mod download
 COPY . .
 
 # Build the binary, specifying the `cmd` directory
-RUN go build -o /app/controller ./cmd/main.go
+RUN CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -o /app/controller ./cmd/main.go
 
 # Use a minimal base image for the final container
 FROM alpine:latest
