@@ -1,0 +1,19 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: my-controller
+  namespace: controller
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: my-controller
+  template:
+    metadata:
+      labels:
+        app: my-controller
+    spec:
+      serviceAccountName: my-controller-sa
+      containers:
+        - name: my-controller
+          image: eight-cubed/controller:v1
