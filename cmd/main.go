@@ -16,7 +16,12 @@ import (
 	"k8s.io/client-go/tools/cache"
 )
 
-// LogCleaner represents the custom resource
+var SchemeGroupVersion = schema.GroupVersion{Group: "stable.example.com", Version: "v1"}
+
+func Resource(resource string) schema.GroupResource {
+	return SchemeGroupVersion.WithResource(resource).GroupResource()
+}
+
 type LogCleaner struct {
 	metav1.TypeMeta   `json:",inline"`
 	metav1.ObjectMeta `json:"metadata,omitempty"`
@@ -24,14 +29,12 @@ type LogCleaner struct {
 	Spec LogCleanerSpec `json:"spec,omitempty"`
 }
 
-// LogCleanerSpec defines the desired state of LogCleaner
 type LogCleanerSpec struct {
 	RetentionPeriod   int    `json:"retentionPeriod"`
 	TargetNamespace   string `json:"targetNamespace"`
 	VolumeNamePattern string `json:"volumeNamePattern"`
 }
 
-// LogCleanerList is a list of LogCleaner resources
 type LogCleanerList struct {
 	metav1.TypeMeta `json:",inline"`
 	metav1.ListMeta `json:"metadata,omitempty"`
@@ -39,7 +42,39 @@ type LogCleanerList struct {
 	Items []LogCleaner `json:"items"`
 }
 
-// DeepCopyObject implements runtime.Object for LogCleaner
+var (
+	SchemeBuilder = runtime.NewSchemeBuilder(addKnownTypes)
+	AddToScheme   = SchemeBuilder.AddToScheme
+)
+
+func addKnownTypes(scheme *runtime.Scheme) error {
+	scheme.AddKnownTypes(SchemeGroupVersion,
+		&LogCleaner{},
+		&LogCleanerList{},
+	)
+
+	scheme.AddKnownTypeWithName(
+		schema.GroupVersionKind{
+			Group:   SchemeGroupVersion.Group,
+			Version: runtime.APIVersionInternal,
+			Kind:    "LogCleaner",
+		},
+		&LogCleaner{},
+	)
+
+	scheme.AddKnownTypeWithName(
+		schema.GroupVersionKind{
+			Group:   SchemeGroupVersion.Group,
+			Version: runtime.APIVersionInternal,
+			Kind:    "LogCleanerList",
+		},
+		&LogCleanerList{},
+	)
+
+	metav1.AddToGroupVersion(scheme, SchemeGroupVersion)
+	return nil
+}
+
 func (in *LogCleaner) DeepCopyObject() runtime.Object {
 	if in == nil {
 		return nil
@@ -49,7 +84,6 @@ func (in *LogCleaner) DeepCopyObject() runtime.Object {
 	return out
 }
 
-// DeepCopyInto copies the receiver into the given LogCleaner
 func (in *LogCleaner) DeepCopyInto(out *LogCleaner) {
 	*out = *in
 	out.TypeMeta = in.TypeMeta
@@ -57,7 +91,6 @@ func (in *LogCleaner) DeepCopyInto(out *LogCleaner) {
 	out.Spec = in.Spec
 }
 
-// DeepCopyObject implements runtime.Object for LogCleanerList
 func (in *LogCleanerList) DeepCopyObject() runtime.Object {
 	if in == nil {
 		return nil
@@ -67,7 +100,6 @@ func (in *LogCleanerList) DeepCopyObject() runtime.Object {
 	return out
 }
 
-// DeepCopyInto copies the receiver into the given LogCleanerList
 func (in *LogCleanerList) DeepCopyInto(out *LogCleanerList) {
 	*out = *in
 	out.TypeMeta = in.TypeMeta
@@ -81,96 +113,108 @@ func (in *LogCleanerList) DeepCopyInto(out *LogCleanerList) {
 	}
 }
 
-// GroupVersion for the custom resource
-var GroupVersion = schema.GroupVersion{Group: "stable.example.com", Version: "v1"}
+func (in *LogCleaner) GetObjectKind() schema.ObjectKind {
+	return &in.TypeMeta
+}
+
+func (in *LogCleanerList) GetObjectKind() schema.ObjectKind {
+	return &in.TypeMeta
+}
 
 func main() {
-	// Create an in-cluster Kubernetes config
 	config, err := rest.InClusterConfig()
 	if err != nil {
 		log.Fatalf("❌ Error creating in-cluster config: %v", err)
 	}
 
-	// Create a new scheme and register the custom resource
 	scheme := runtime.NewScheme()
-	AddToScheme(scheme)
+	if err := AddToScheme(scheme); err != nil {
+		log.Fatalf("❌ Error adding types to scheme: %v", err)
+	}
 
-	// Configure the REST client
 	config.APIPath = "/apis"
-	config.GroupVersion = &GroupVersion
+	config.GroupVersion = &SchemeGroupVersion
 	config.NegotiatedSerializer = serializer.NewCodecFactory(scheme)
+	config.ContentType = runtime.ContentTypeJSON
 
 	restClient, err := rest.RESTClientFor(config)
 	if err != nil {
 		log.Fatalf("❌ Error creating REST client: %v", err)
 	}
 
-	// Create a stop channel for graceful shutdown
 	stopCh := make(chan struct{})
-	go watchCRD(restClient, stopCh)
-
-	// Set up signal handling for graceful shutdown
 	signalCh := make(chan os.Signal, 1)
 	signal.Notify(signalCh, syscall.SIGINT, syscall.SIGTERM)
 
-	// Wait for a termination signal
+	go watchCRD(restClient, stopCh)
+
 	log.Println("✅ Watching for LogCleaner events...")
 	<-signalCh
 
-	// Stop the informer
 	close(stopCh)
 	log.Println("🛑 Shutting down...")
 }
 
-// Function to watch for LogCleaner events
 func watchCRD(restClient rest.Interface, stopCh <-chan struct{}) {
-	// Create a ListWatch for LogCleaners
 	watchList := cache.NewListWatchFromClient(
 		restClient,
-		"logcleaners", // Plural name of the custom resource
-		"",            // Namespace (empty string for all namespaces)
+		"logcleaners",
+		metav1.NamespaceAll,
 		fields.Everything(),
 	)
 
-	// Define event handlers
 	handlers := cache.ResourceEventHandlerFuncs{
 		AddFunc:    onLogCleanerAdd,
 		UpdateFunc: onLogCleanerUpdate,
 		DeleteFunc: onLogCleanerDelete,
 	}
 
-	// Create an informer
 	_, controller := cache.NewInformer(
 		watchList,
-		&LogCleaner{}, // The type of object to watch
-		0,             // Resync period (0 to disable resync)
-		handlers,      // Event handlers
+		&LogCleaner{
+			TypeMeta: metav1.TypeMeta{
+				APIVersion: SchemeGroupVersion.String(),
+				Kind:       "LogCleaner",
+			},
+		},
+		0,
+		handlers,
 	)
 
-	// Start the controller
 	controller.Run(stopCh)
 }
 
-// Event Handlers for LogCleaner
 func onLogCleanerAdd(obj interface{}) {
-	logCleaner := obj.(*LogCleaner)
+	logCleaner, ok := obj.(*LogCleaner)
+	if !ok {
+		log.Printf("❌ Error: unexpected type %T", obj)
+		return
+	}
 	fmt.Printf("📢 LogCleaner added: %s in namespace %s\n", logCleaner.Name, logCleaner.Namespace)
+	fmt.Printf("   RetentionPeriod: %d, TargetNamespace: %s, VolumeNamePattern: %s\n",
+		logCleaner.Spec.RetentionPeriod,
+		logCleaner.Spec.TargetNamespace,
+		logCleaner.Spec.VolumeNamePattern)
 }
 
 func onLogCleanerUpdate(oldObj, newObj interface{}) {
-	oldLogCleaner := oldObj.(*LogCleaner)
-	newLogCleaner := newObj.(*LogCleaner)
-	fmt.Printf("📢 LogCleaner updated: %s (RetentionPeriod: %d -> %d)\n", newLogCleaner.Name, oldLogCleaner.Spec.RetentionPeriod, newLogCleaner.Spec.RetentionPeriod)
+	oldLogCleaner, ok1 := oldObj.(*LogCleaner)
+	newLogCleaner, ok2 := newObj.(*LogCleaner)
+	if !ok1 || !ok2 {
+		log.Printf("❌ Error: unexpected types %T and %T", oldObj, newObj)
+		return
+	}
+	fmt.Printf("📢 LogCleaner updated: %s in namespace %s\n", newLogCleaner.Name, newLogCleaner.Namespace)
+	fmt.Printf("   RetentionPeriod: %d -> %d\n",
+		oldLogCleaner.Spec.RetentionPeriod,
+		newLogCleaner.Spec.RetentionPeriod)
 }
 
 func onLogCleanerDelete(obj interface{}) {
-	logCleaner := obj.(*LogCleaner)
+	logCleaner, ok := obj.(*LogCleaner)
+	if !ok {
+		log.Printf("❌ Error: unexpected type %T", obj)
+		return
+	}
 	fmt.Printf("📢 LogCleaner deleted: %s in namespace %s\n", logCleaner.Name, logCleaner.Namespace)
-}
-
-// AddToScheme registers the custom resource with the scheme
-func AddToScheme(scheme *runtime.Scheme) error {
-	scheme.AddKnownTypes(GroupVersion, &LogCleaner{}, &LogCleanerList{})
-	metav1.AddToGroupVersion(scheme, GroupVersion)
-	return nil
 }

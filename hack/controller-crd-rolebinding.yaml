@@ -1,0 +1,13 @@
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: logcleaner-rolebinding
+  namespace: controller
+subjects:
+  - kind: ServiceAccount
+    name: my-controller-sa
+    namespace: controller
+roleRef:
+  kind: Role
+  name: logcleaner-role
+  apiGroup: rbac.authorization.k8s.io

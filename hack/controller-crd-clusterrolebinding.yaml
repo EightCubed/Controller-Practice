@@ -1,0 +1,13 @@
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: logcleaner-clusterrolebinding
+  namespace: controller
+subjects:
+  - kind: ServiceAccount
+    name: my-controller-sa
+    namespace: controller
+roleRef:
+  kind: ClusterRole
+  name: logcleaner-clusterrole
+  apiGroup: rbac.authorization.k8s.io
