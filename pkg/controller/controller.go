@@ -53,7 +53,7 @@ func (c *Controller) Run(stopCh <-chan struct{}) {
 func (c *Controller) onAdd(obj interface{}) {
 	logCleaner, ok := obj.(*v1.LogCleaner)
 	if !ok {
-		log.Printf("❌ Error: unexpected type %T", obj)
+		log.Printf("Error: unexpected type %T", obj)
 		return
 	}
 	fmt.Printf("📢 LogCleaner added: %s in namespace %s\n", logCleaner.Name, logCleaner.Namespace)
@@ -67,7 +67,7 @@ func (c *Controller) onUpdate(oldObj, newObj interface{}) {
 	oldLogCleaner, ok1 := oldObj.(*v1.LogCleaner)
 	newLogCleaner, ok2 := newObj.(*v1.LogCleaner)
 	if !ok1 || !ok2 {
-		log.Printf("❌ Error: unexpected types %T and %T", oldObj, newObj)
+		log.Printf("Error: unexpected types %T and %T", oldObj, newObj)
 		return
 	}
 
@@ -80,7 +80,7 @@ func (c *Controller) onUpdate(oldObj, newObj interface{}) {
 func (c *Controller) onDelete(obj interface{}) {
 	logCleaner, ok := obj.(*v1.LogCleaner)
 	if !ok {
-		log.Printf("❌ Error: unexpected type %T", obj)
+		log.Printf("Error: unexpected type %T", obj)
 		return
 	}
 	fmt.Printf("📢 LogCleaner deleted: %s in namespace %s\n", logCleaner.Name, logCleaner.Namespace)

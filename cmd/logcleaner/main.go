@@ -16,12 +16,12 @@ import (
 func main() {
 	config, err := rest.InClusterConfig()
 	if err != nil {
-		log.Fatalf("❌ Error creating in-cluster config: %v", err)
+		log.Fatalf("Error creating in-cluster config: %v", err)
 	}
 
 	scheme := runtime.NewScheme()
 	if err := v1.AddToScheme(scheme); err != nil {
-		log.Fatalf("❌ Error adding types to scheme: %v", err)
+		log.Fatalf("Error adding types to scheme: %v", err)
 	}
 
 	config.APIPath = "/apis"
@@ -31,7 +31,7 @@ func main() {
 
 	restClient, err := rest.RESTClientFor(config)
 	if err != nil {
-		log.Fatalf("❌ Error creating REST client: %v", err)
+		log.Fatalf("Error creating REST client: %v", err)
 	}
 
 	stopCh := make(chan struct{})
@@ -45,5 +45,5 @@ func main() {
 	<-signalCh
 
 	close(stopCh)
-	log.Println("🛑 Shutting down...")
+	log.Println("Shutting down...")
 }
