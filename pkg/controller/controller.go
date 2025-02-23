@@ -12,11 +12,13 @@ import (
 )
 
 type Controller struct {
+	config     rest.Config
 	restClient rest.Interface
 }
 
-func NewController(restClient rest.Interface) *Controller {
+func NewController(config rest.Config, restClient rest.Interface) *Controller {
 	return &Controller{
+		config:     config,
 		restClient: restClient,
 	}
 }
@@ -68,6 +70,7 @@ func (c *Controller) onUpdate(oldObj, newObj interface{}) {
 		log.Printf("❌ Error: unexpected types %T and %T", oldObj, newObj)
 		return
 	}
+
 	fmt.Printf("📢 LogCleaner updated: %s in namespace %s\n", newLogCleaner.Name, newLogCleaner.Namespace)
 	fmt.Printf("   RetentionPeriod: %d -> %d\n",
 		oldLogCleaner.Spec.RetentionPeriod,

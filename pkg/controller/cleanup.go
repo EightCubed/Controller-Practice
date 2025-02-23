@@ -1,22 +1,61 @@
 package controller
 
 import (
+	"bytes"
 	"fmt"
+	"log"
 
+	v1 "k8s.io/api/core/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes"
-	"k8s.io/client-go/rest"
+	"k8s.io/client-go/tools/remotecommand"
 )
 
-func getKubeClient() (*kubernetes.Clientset, *rest.Config, error) {
-	config, err := rest.InClusterConfig()
+func (c Controller) returnClientset() (clientset *kubernetes.Clientset, err error) {
+	clientset, err = kubernetes.NewForConfig(&c.config)
 	if err != nil {
-		return nil, nil, fmt.Errorf("error creating in-cluster config: %w", err)
+		return nil, fmt.Errorf("error creating clientset: %w", err)
 	}
 
-	clientset, err := kubernetes.NewForConfig(config)
+	return clientset, nil
+}
+
+func (c Controller) runLogCleanup(logFilePath string, containerName string, podName string, namespace string, retentionDays int) error {
+	clientset, err := c.returnClientset()
 	if err != nil {
-		return nil, nil, fmt.Errorf("error creating clientset: %w", err)
+		return fmt.Errorf("failed to create Kubernetes client: %w", err)
 	}
 
-	return clientset, config, nil
+	cmd := []string{"find", logFilePath, "-type", "f", "-mtime", fmt.Sprintf("+%d", retentionDays), "-delete"}
+
+	req := clientset.CoreV1().RESTClient().
+		Post().
+		Namespace(namespace).
+		Resource("pods").
+		Name(podName).
+		SubResource("exec").
+		VersionedParams(&v1.PodExecOptions{
+			Command:   cmd,
+			Container: containerName,
+			Stdout:    true,
+			Stderr:    true,
+		}, metav1.ParameterCodec)
+
+	exec, err := remotecommand.NewSPDYExecutor(&c.config, "POST", req.URL())
+	if err != nil {
+		return fmt.Errorf("error executing cleanup command: %w", err)
+	}
+
+	var stdout, stderr bytes.Buffer
+	err = exec.Stream(remotecommand.StreamOptions{
+		Stdout: &stdout,
+		Stderr: &stderr,
+	})
+	if err != nil {
+		return fmt.Errorf("error executing cleanup command: %w\nStderr: %s", err, stderr.String())
+	}
+
+	log.Printf("✅ Deleted logs:\n%s", stdout.String())
+
+	return nil
 }

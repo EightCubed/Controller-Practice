@@ -38,7 +38,7 @@ func main() {
 	signalCh := make(chan os.Signal, 1)
 	signal.Notify(signalCh, syscall.SIGINT, syscall.SIGTERM)
 
-	controller := controller.NewController(restClient)
+	controller := controller.NewController(*config, restClient)
 	go controller.Run(stopCh)
 
 	log.Println("✅ Watching for LogCleaner events...")
