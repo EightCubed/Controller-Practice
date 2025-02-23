@@ -17,3 +17,6 @@ spec:
       containers:
         - name: my-controller
           image: eight-cubed/controller:v1
+          env:
+            - name: CLEAN_UP_INTERVAL_IN_HOURS
+              value: 24

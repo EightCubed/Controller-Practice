@@ -4,6 +4,8 @@ import (
 	"context"
 	"fmt"
 	"log"
+	"os"
+	"strconv"
 	"time"
 
 	v1 "example.com/controller/pkg/apis/logcleaner/v1"
@@ -12,6 +14,8 @@ import (
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/cache"
 )
+
+const DEFAULT_CLEAN_UP_INTERVAL = 24
 
 type Controller struct {
 	config         rest.Config
@@ -28,7 +32,18 @@ func NewController(config rest.Config, coreRestClient rest.Interface, restClient
 }
 
 func (c *Controller) Run(stopCh <-chan struct{}) {
-	ticker := time.NewTicker(5 * time.Minute)
+	cleanUpInterval := DEFAULT_CLEAN_UP_INTERVAL
+
+	if value, found := os.LookupEnv("CLEAN_UP_INTERVAL_IN_HOURS"); found {
+		if parsedValue, err := strconv.Atoi(value); err == nil {
+			cleanUpInterval = parsedValue
+		} else {
+			log.Printf("Invalid CLEAN_UP_INTERVAL_IN_HOURS value: %s, using default: %d hours", value, cleanUpInterval)
+		}
+	}
+
+	ticketFireDuration := time.Duration(cleanUpInterval) * time.Hour
+	ticker := time.NewTicker(ticketFireDuration)
 	defer ticker.Stop()
 
 	watchList := cache.NewListWatchFromClient(
