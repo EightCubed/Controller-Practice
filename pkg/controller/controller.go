@@ -56,8 +56,8 @@ func (c *Controller) onAdd(obj interface{}) {
 		log.Printf("Error: unexpected type %T", obj)
 		return
 	}
-	fmt.Printf("📢 LogCleaner added: %s in namespace %s\n", logCleaner.Name, logCleaner.Namespace)
-	fmt.Printf("   RetentionPeriod: %d, TargetNamespace: %s, VolumeNamePattern: %s\n",
+	fmt.Printf("LogCleaner added: %s in namespace %s\n", logCleaner.Name, logCleaner.Namespace)
+	fmt.Printf("RetentionPeriod: %d, TargetNamespace: %s, VolumeNamePattern: %s\n",
 		logCleaner.Spec.RetentionPeriod,
 		logCleaner.Spec.TargetNamespace,
 		logCleaner.Spec.VolumeNamePattern)
@@ -71,8 +71,8 @@ func (c *Controller) onUpdate(oldObj, newObj interface{}) {
 		return
 	}
 
-	fmt.Printf("📢 LogCleaner updated: %s in namespace %s\n", newLogCleaner.Name, newLogCleaner.Namespace)
-	fmt.Printf("   RetentionPeriod: %d -> %d\n",
+	fmt.Printf("LogCleaner updated: %s in namespace %s\n", newLogCleaner.Name, newLogCleaner.Namespace)
+	fmt.Printf("RetentionPeriod: %d -> %d\n",
 		oldLogCleaner.Spec.RetentionPeriod,
 		newLogCleaner.Spec.RetentionPeriod)
 }
@@ -83,5 +83,5 @@ func (c *Controller) onDelete(obj interface{}) {
 		log.Printf("Error: unexpected type %T", obj)
 		return
 	}
-	fmt.Printf("📢 LogCleaner deleted: %s in namespace %s\n", logCleaner.Name, logCleaner.Namespace)
+	fmt.Printf("LogCleaner deleted: %s in namespace %s\n", logCleaner.Name, logCleaner.Namespace)
 }
