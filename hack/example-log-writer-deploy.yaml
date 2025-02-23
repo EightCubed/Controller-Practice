@@ -1,0 +1,27 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: log-writer
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: log-writer
+  template:
+    metadata:
+      labels:
+        app: log-writer
+    spec:
+      containers:
+        - name: log-writer
+          image: busybox
+          command: ["/bin/sh", "-c"]
+          args:
+            - while true; do echo "$(date) Writing logs..." >> /var/log/app-logs/app.log; sleep 10; done
+          volumeMounts:
+            - mountPath: "/var/log/app-logs"
+              name: log-storage
+      volumes:
+        - name: log-storage
+          persistentVolumeClaim:
+            claimName: log-store-pvc

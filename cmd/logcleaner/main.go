@@ -1,4 +1,3 @@
-// cmd/logcleaner/main.go
 package main
 
 import (
@@ -7,8 +6,8 @@ import (
 	"os/signal"
 	"syscall"
 
-	"example.com/controller/pkg/apis/controller"
 	v1 "example.com/controller/pkg/apis/logcleaner/v1"
+	"example.com/controller/pkg/controller"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/serializer"
 	"k8s.io/client-go/rest"
