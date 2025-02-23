@@ -1,27 +1,33 @@
-# Use Golang for building the binary
-FROM golang:1.21 AS builder
+FROM golang:1.21-alpine AS builder
 
-WORKDIR /app
+RUN apk add --no-cache git ca-certificates
 
-# Copy module files and download dependencies
+WORKDIR /build
+
 COPY go.mod go.sum ./
 RUN go mod download
 
-# Copy the rest of the code
-COPY . .
+COPY cmd/ cmd/
+COPY pkg/ pkg/
 
-# Build the binary, specifying the `cmd` directory
-RUN CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -o /app/controller ./cmd/main.go
+RUN CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build \
+    -ldflags='-w -s -extldflags=-static' \
+    -o logcleaner-controller \
+    ./cmd/logcleaner/main.go
 
-# Use a minimal base image for the final container
-FROM alpine:latest
+RUN ./logcleaner-controller --version || true
 
-WORKDIR /app
+FROM alpine:3.19
 
-# Copy the built binary
-COPY --from=builder /app/controller /app/controller
+RUN apk add --no-cache ca-certificates tzdata && \
+    addgroup -g 1000 logcleaner && \
+    adduser -u 1000 -G logcleaner -s /bin/sh -D logcleaner
 
-# Ensure the binary is executable
-RUN chmod +x /app/controller
+COPY --from=builder /build/logcleaner-controller /usr/local/bin/
 
-CMD ["/app/controller"]
+RUN chown logcleaner:logcleaner /usr/local/bin/logcleaner-controller && \
+    chmod +x /usr/local/bin/logcleaner-controller
+
+USER logcleaner
+
+ENTRYPOINT ["/usr/local/bin/logcleaner-controller"]
