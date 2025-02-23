@@ -2,6 +2,7 @@ package controller
 
 import (
 	"bytes"
+	"context"
 	"fmt"
 	"log"
 
@@ -56,6 +57,22 @@ func (c Controller) runLogCleanup(logFilePath string, containerName string, podN
 	}
 
 	log.Printf("✅ Deleted logs:\n%s", stdout.String())
+
+	return nil
+}
+
+func (c Controller) fetchAssociatedPVC() error {
+	var pvList v1.PersistentVolumeList
+	err := c.coreRestClient.
+		Get().
+		Resource("persistentvolumes").
+		Do(context.TODO()).
+		Into(&pvList)
+	if err != nil {
+		return err
+	}
+
+	fmt.Printf("pvList : %v", pvList)
 
 	return nil
 }

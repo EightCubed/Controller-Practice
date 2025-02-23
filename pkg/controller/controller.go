@@ -12,11 +12,12 @@ import (
 )
 
 type Controller struct {
-	config     rest.Config
-	restClient rest.Interface
+	config         rest.Config
+	coreRestClient rest.Interface
+	restClient     rest.Interface
 }
 
-func NewController(config rest.Config, restClient rest.Interface) *Controller {
+func NewController(config rest.Config, coreRestClient rest.Interface, restClient rest.Interface) *Controller {
 	return &Controller{
 		config:     config,
 		restClient: restClient,
@@ -61,6 +62,11 @@ func (c *Controller) onAdd(obj interface{}) {
 		logCleaner.Spec.RetentionPeriod,
 		logCleaner.Spec.TargetNamespace,
 		logCleaner.Spec.VolumeNamePattern)
+
+	err := c.fetchAssociatedPVC()
+	if err != nil {
+		fmt.Printf("Error : %v\n", err)
+	}
 }
 
 func (c *Controller) onUpdate(oldObj, newObj interface{}) {

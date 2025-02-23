@@ -34,11 +34,25 @@ func main() {
 		log.Fatalf("Error creating REST client: %v", err)
 	}
 
+	coreConfig, err := rest.InClusterConfig()
+	if err != nil {
+		log.Fatalf("Error creating in-cluster config: %v", err)
+	}
+	coreConfig.APIPath = "/api"
+	coreConfig.GroupVersion = &v1.SchemeGroupVersion
+	coreConfig.NegotiatedSerializer = serializer.NewCodecFactory(scheme)
+	coreConfig.ContentType = runtime.ContentTypeJSON
+
+	coreRestClient, err := rest.RESTClientFor(coreConfig)
+	if err != nil {
+		log.Fatalf("Error creating core REST client: %v", err)
+	}
+
 	stopCh := make(chan struct{})
 	signalCh := make(chan os.Signal, 1)
 	signal.Notify(signalCh, syscall.SIGINT, syscall.SIGTERM)
 
-	controller := controller.NewController(*config, restClient)
+	controller := controller.NewController(*config, coreRestClient, restClient)
 	go controller.Run(stopCh)
 
 	log.Println("✅ Watching for LogCleaner events...")
