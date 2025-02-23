@@ -9,6 +9,7 @@ import (
 	v1 "example.com/controller/pkg/apis/logcleaner/v1"
 	"example.com/controller/pkg/controller"
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/runtime/serializer"
 	"k8s.io/client-go/rest"
 )
@@ -39,7 +40,7 @@ func main() {
 		log.Fatalf("Error creating in-cluster config: %v", err)
 	}
 	coreConfig.APIPath = "/api"
-	coreConfig.GroupVersion = &v1.SchemeGroupVersion
+	coreConfig.GroupVersion = &schema.GroupVersion{Group: "", Version: "v1"}
 	coreConfig.NegotiatedSerializer = serializer.NewCodecFactory(scheme)
 	coreConfig.ContentType = runtime.ContentTypeJSON
 

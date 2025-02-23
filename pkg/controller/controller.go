@@ -1,8 +1,10 @@
 package controller
 
 import (
+	"context"
 	"fmt"
 	"log"
+	"time"
 
 	v1 "example.com/controller/pkg/apis/logcleaner/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -19,12 +21,16 @@ type Controller struct {
 
 func NewController(config rest.Config, coreRestClient rest.Interface, restClient rest.Interface) *Controller {
 	return &Controller{
-		config:     config,
-		restClient: restClient,
+		config:         config,
+		restClient:     restClient,
+		coreRestClient: coreRestClient,
 	}
 }
 
 func (c *Controller) Run(stopCh <-chan struct{}) {
+	ticker := time.NewTicker(5 * time.Minute)
+	defer ticker.Stop()
+
 	watchList := cache.NewListWatchFromClient(
 		c.restClient,
 		"logcleaners",
@@ -48,7 +54,18 @@ func (c *Controller) Run(stopCh <-chan struct{}) {
 		},
 	)
 
-	controller.Run(stopCh)
+	go controller.Run(stopCh)
+
+	for {
+		select {
+		case <-ticker.C:
+			log.Println("24-hour ticker fired. Running cleanup...")
+			c.runPeriodicCleanup()
+		case <-stopCh:
+			log.Println("Stopping controller...")
+			return
+		}
+	}
 }
 
 func (c *Controller) onAdd(obj interface{}) {
@@ -63,9 +80,9 @@ func (c *Controller) onAdd(obj interface{}) {
 		logCleaner.Spec.TargetNamespace,
 		logCleaner.Spec.VolumeNamePattern)
 
-	err := c.fetchAssociatedPVC()
+	err := c.runLogCleanup(logCleaner)
 	if err != nil {
-		fmt.Printf("Error : %v\n", err)
+		log.Printf("Error : %v\n", err)
 	}
 }
 
@@ -81,6 +98,11 @@ func (c *Controller) onUpdate(oldObj, newObj interface{}) {
 	fmt.Printf("RetentionPeriod: %d -> %d\n",
 		oldLogCleaner.Spec.RetentionPeriod,
 		newLogCleaner.Spec.RetentionPeriod)
+
+	err := c.runLogCleanup(newLogCleaner)
+	if err != nil {
+		log.Printf("Error : %v\n", err)
+	}
 }
 
 func (c *Controller) onDelete(obj interface{}) {
@@ -90,4 +112,24 @@ func (c *Controller) onDelete(obj interface{}) {
 		return
 	}
 	fmt.Printf("LogCleaner deleted: %s in namespace %s\n", logCleaner.Name, logCleaner.Namespace)
+}
+
+func (c *Controller) runPeriodicCleanup() {
+	var logCleaners v1.LogCleanerList
+	err := c.restClient.Get().
+		Namespace(metav1.NamespaceAll).
+		Resource("logcleaners").
+		Do(context.Background()).
+		Into(&logCleaners)
+	if err != nil {
+		log.Printf("Error fetching LogCleaner resources: %v\n", err)
+		return
+	}
+
+	for _, logCleaner := range logCleaners.Items {
+		err := c.runLogCleanup(&logCleaner)
+		if err != nil {
+			log.Printf("Error running cleanup for LogCleaner %s: %v\n", logCleaner.Name, err)
+		}
+	}
 }
