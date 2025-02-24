@@ -40,9 +40,6 @@ func (c Controller) runLogCleanup(logCleaner *v1.LogCleaner) error {
 		return fmt.Errorf("failed to fetch PVCs: %w", err)
 	}
 
-	log.Println("pvList", pvList)
-	log.Println("len(pvList)", len(pvList))
-
 	if len(pvList) == 0 {
 		log.Print("No volume names match the regex")
 		return nil
